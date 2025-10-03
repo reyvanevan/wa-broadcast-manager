@@ -92,13 +92,15 @@ const command = cleanBody.replace(prefix, '').trim().split(/ +/).shift().toLower
     const pushname = m.pushName || "No Name"
     const text = q = args.join(" ")
     
-    // Debug logs
-    console.log('📝 Message body:', body);
-    // Only log if it's a real command (starts with .)
-    if (body.startsWith('.')) {
-      console.log('⚡ Command detected:', command);
+    // Debug logs - only for private chats to reduce spam
+    if (!m.isGroup) {
+        console.log('📝 Message body:', body);
+        // Only log if it's a real command (starts with .)
+        if (body.startsWith('.')) {
+          console.log('⚡ Command detected:', command);
+        }
+        console.log('👤 From:', pushname);
     }
-    console.log('👤 From:', pushname);
     
     const { type, quotedMsg, mentioned, now, fromMe } = m
     const quoted = m.quoted ? m.quoted : m
@@ -108,8 +110,8 @@ const command = cleanBody.replace(prefix, '').trim().split(/ +/).shift().toLower
     const isOwner = [botNumber, ...global.owner].map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(m.sender)
     const sender = m.isGroup ? (m.key.participant ? m.key.participant : m.participant) : m.key.remoteJid
     const groupMetadata = m.isGroup ? await client.groupMetadata(from).catch(e => {}) : ''
-    const groupName = m.isGroup ? groupMetadata.subject : ''
-    const participants = m.isGroup ? await groupMetadata.participants : ''
+    const groupName = m.isGroup ? (groupMetadata && groupMetadata.subject ? groupMetadata.subject : 'Unknown Group') : ''
+    const participants = m.isGroup ? (groupMetadata && groupMetadata.participants ? groupMetadata.participants : []) : ''
     const groupAdmins = m.isGroup ? await getGroupAdmins(participants) : ''
     const isBotAdmins = m.isGroup ? groupAdmins.includes(botNumber) : false
     const isAdmins = m.isGroup ? groupAdmins.includes(m.sender) : false
@@ -254,8 +256,8 @@ const Input = Array.isArray(mentionByTag) && mentionByTag.length > 0 ? mentionBy
       if (!m.key.fromMe) return
     }
     if (m.message) {
-      // Only log commands and broadcast messages
-      if (body.startsWith('.') || body.startsWith('broadcast')) {
+      // Only log commands and broadcast messages from private chats
+      if ((body.startsWith('.') || body.startsWith('broadcast')) && !m.isGroup) {
         console.log(chalk.cyan(`📝 Command: ${body.substring(0, 50)}...`))
         console.log(chalk.green(`👤 From: ${pushname} | 📍 ${m.isGroup ? 'Group' : 'Private'}`))
       }
@@ -1318,7 +1320,7 @@ break;
         if (!isAdmins && !isOwner) return
         if (!isBotAdmins) return
         let response = await client.groupInviteCode(m.chat)
-        client.sendText(m.chat, `*『 INFO LINK GROUP 』*\n\n» *Nama Grup :* ${groupMetadata.subject}\n» *Owner Grup :* ${groupMetadata.owner !== undefined ? '@' + groupMetadata.owner.split`@`[0] : 'Tidak diketahui'}\n» *ID Grup:* ${groupMetadata.id}\n» *Link Grup :* https://chat.whatsapp.com/${response}\n» *Member :* ${groupMetadata.participants.length}\n`, m, {
+        client.sendText(m.chat, `*『 INFO LINK GROUP 』*\n\n» *Nama Grup :* ${groupMetadata && groupMetadata.subject ? groupMetadata.subject : 'Unknown Group'}\n» *Owner Grup :* ${groupMetadata && groupMetadata.owner !== undefined ? '@' + groupMetadata.owner.split`@`[0] : 'Tidak diketahui'}\n» *ID Grup:* ${groupMetadata && groupMetadata.id ? groupMetadata.id : 'Unknown'}\n» *Link Grup :* https://chat.whatsapp.com/${response}\n» *Member :* ${groupMetadata && groupMetadata.participants ? groupMetadata.participants.length : 0}\n`, m, {
           detectLink: true
         })
       }
@@ -1739,15 +1741,15 @@ break;
   if (action === 'on') {
     antilink.push(from);
     fs.writeFileSync('./src/antilink.json', JSON.stringify(antilink, null, 2));
-    m.reply(`âœ… Sukses mengaktifkan fitur antilink di group *${groupMetadata.subject}*`);
+    m.reply(`✅ Sukses mengaktifkan fitur antilink di group *${groupMetadata && groupMetadata.subject ? groupMetadata.subject : 'Unknown Group'}*`);
   } else if (action === 'off') {
     const index = antilink.indexOf(from);
     if (index !== -1) {
       antilink.splice(index, 1);
       fs.writeFileSync('./src/antilink.json', JSON.stringify(antilink, null, 2));
-      m.reply(`âœ… Sukses menonaktifkan fitur antilink di group *${groupMetadata.subject}*`);
+      m.reply(`✅ Sukses menonaktifkan fitur antilink di group *${groupMetadata && groupMetadata.subject ? groupMetadata.subject : 'Unknown Group'}*`);
     } else {
-      m.reply(`Fitur antilink tidak aktif di group *${groupMetadata.subject}*.`);
+      m.reply(`Fitur antilink tidak aktif di group *${groupMetadata && groupMetadata.subject ? groupMetadata.subject : 'Unknown Group'}*.`);
     }
   } else {
     m.reply('Gunakan "on" untuk mengaktifkan atau "off" untuk menonaktifkan fitur antilink.');
