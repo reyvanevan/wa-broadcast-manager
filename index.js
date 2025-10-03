@@ -37,6 +37,9 @@ year: 'numeric'
 const usePairingCode = true
 
 const { smsg, isUrl, generateMessageTag, getBuffer, getSizeMedia, fetchJson, await, sleep } = require('./lib/myfunc')
+const SessionManager = require('./lib/sessionManager')
+const sessionManager = new SessionManager()
+
 const question = (text) => {
   const rl = readline.createInterface({
 input: process.stdin,
@@ -92,6 +95,12 @@ CFonts.say(
 console.log(color(`INFO:`, "gold"), color(`\n-`, "gold"), color(`Jika code tidak muncul enter 1-2x lagi`, "red"), color(`\n-`, "gold"), color(`Format nomor diawali dengan 62..., bukan 08...`, "red"))
 //=================================================//
 async function connectToWhatsApp() {
+// Check for corrupted session before connecting
+if (sessionManager.isSessionCorrupted()) {
+  console.log(chalk.yellow('🔧 Corrupted session detected, clearing...'))
+  sessionManager.clearSession()
+}
+
 const { state, saveCreds } = await useMultiFileAuthState(global.sessionName)
 
 const { version } = await fetchLatestBaileysVersion();
@@ -130,12 +139,20 @@ if (usePairingCode && !client.authState.creds.registered) {
   console.log('Meminta Code...');
   await delay(3500);
 
-  // Define your custom 8-digit code (alphanumeric) - sesuai dokumentasi README
-  const customPairingCode = "KOPERASI";
-  const code = await client.requestPairingCode(phoneNumber.trim(), customPairingCode);
-  console.log(color(`⚠︎ Kode Pairing Bot Whatsapp kamu :`, "gold"), color(`${code?.match(/.{1,4}/g)?.join('-') || code}`, "white"));
+  try {
+    const code = await client.requestPairingCode(phoneNumber.trim());
+    console.log(color(`⚠︎ Kode Pairing Bot Whatsapp kamu :`, "gold"), color(`${code?.match(/.{1,4}/g)?.join('-') || code}`, "white"));
+    
+    // Wait for pairing completion
+    console.log(color('🔄 Waiting for pairing completion...', 'yellow'));
+    
+  } catch (error) {
+    logger.error('❌ Error requesting pairing code:', error);
+    console.log(color('❌ Failed to request pairing code, please try again', 'red'));
+  }
 } else if (client.authState.creds.registered) {
   console.log(color('✅ Using existing session', 'green'));
+  console.log(color('─[ 「 Alexa AI Assistant starting... 」 ]─', 'cyan'));
 }
 
 //=================================================//
@@ -162,15 +179,54 @@ client.ev.on('connection.update', (update) => {
   
   if (connection === 'close') {
     const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
-    logger.warn(`Connection closed due to ${lastDisconnect?.error}, reconnecting: ${shouldReconnect}`)
+    const errorReason = lastDisconnect?.error?.output?.statusCode
     
-    if (shouldReconnect) {
+    // Handle specific disconnect reasons with SessionManager
+    if (errorReason === DisconnectReason.badSession) {
+      logger.warn('❌ Bad session file, clearing and reconnecting...')
+      sessionManager.handleSessionError('badSession')
+      setTimeout(() => {
+        connectToWhatsApp()
+      }, 5000)
+    } else if (errorReason === DisconnectReason.connectionReplaced) {
+      logger.warn('🔄 Connection replaced by another session')
+      sessionManager.handleSessionError('replaced')
+      setTimeout(() => {
+        connectToWhatsApp()
+      }, 8000) // Longer delay for replacement conflicts
+    } else if (lastDisconnect?.error?.message?.includes('conflict')) {
+      logger.warn('⚠️  Session conflict detected')
+      sessionManager.handleSessionError('conflict')
+      setTimeout(() => {
+        connectToWhatsApp()
+      }, 10000) // Even longer delay for conflicts
+    } else if (errorReason === DisconnectReason.connectionClosed) {
+      logger.warn('� Connection closed, reconnecting...')
       setTimeout(() => {
         connectToWhatsApp()
       }, 3000)
+    } else if (errorReason === DisconnectReason.connectionLost) {
+      logger.warn('� Connection lost, reconnecting...')
+      setTimeout(() => {
+        connectToWhatsApp()
+      }, 3000)
+    } else if (errorReason === DisconnectReason.restartRequired) {
+      logger.info('🔄 Restart required, restarting connection...')
+      setTimeout(() => {
+        connectToWhatsApp()
+      }, 2000)
+    } else if (shouldReconnect) {
+      logger.warn(`Connection closed due to ${lastDisconnect?.error}, reconnecting: ${shouldReconnect}`)
+      setTimeout(() => {
+        connectToWhatsApp()
+      }, 5000)
     }
   } else if (connection === 'open') {
     success('qr', 'Bot connected successfully!')
+    console.log('✅ Alexa AI Assistant is now online and ready!')
+    console.log(`📱 Bot Number: ${client.user?.id}`)
+    console.log(`🔓 Public Mode: ${client.public ? 'Enabled' : 'Disabled'}`)
+    console.log('📝 Ready to receive messages!')
     logger.info('✅ Successfully connected to WhatsApp')
   } else if (connection === 'connecting') {
     start('qr', 'Connecting to WhatsApp...')
