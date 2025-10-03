@@ -94,7 +94,10 @@ const command = cleanBody.replace(prefix, '').trim().split(/ +/).shift().toLower
     
     // Debug logs
     console.log('📝 Message body:', body);
-    console.log('⚡ Command detected:', command);
+    // Only log if it's a real command (starts with .)
+    if (body.startsWith('.')) {
+      console.log('⚡ Command detected:', command);
+    }
     console.log('👤 From:', pushname);
     
     const { type, quotedMsg, mentioned, now, fromMe } = m
@@ -251,7 +254,11 @@ const Input = Array.isArray(mentionByTag) && mentionByTag.length > 0 ? mentionBy
       if (!m.key.fromMe) return
     }
     if (m.message) {
-      console.log(chalk.red(chalk.bgBlack('[ PESAN ] => ')), chalk.white(chalk.bgBlack(budy || m.mtype)) + '\n' + chalk.magenta('=> Dari'), chalk.green(pushname), chalk.yellow(m.sender.split("@")[0]) + '\n' + chalk.blueBright('=> Di'), chalk.green(m.isGroup ? pushname : 'Private Chat'), chalk.magenta(`\nJam :`) + time1)
+      // Only log commands and broadcast messages
+      if (body.startsWith('.') || body.startsWith('broadcast')) {
+        console.log(chalk.cyan(`📝 Command: ${body.substring(0, 50)}...`))
+        console.log(chalk.green(`👤 From: ${pushname} | 📍 ${m.isGroup ? 'Group' : 'Private'}`))
+      }
     }
 
       function getOrderFormat(aliasKey) {
