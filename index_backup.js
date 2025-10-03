@@ -1,3 +1,6 @@
+// WA Broadcast Manager - Advanced WhatsApp Broadcasting Tool with AI Assistant
+// Based on Alexa WhatsApp Bot with enhanced broadcasting capabilities
+
 // Biar bisa pairing code tanpa error
 if (!global.crypto) {
     const { webcrypto } = require('crypto');
@@ -5,7 +8,7 @@ if (!global.crypto) {
 }
 
 require('./db/config')
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, generateForwardMessageContent, prepareWAMessageMedia, generateWAMessageFromContent, generateMessageID, downloadContentFromMessage, /*makeInMemoryStore,*/ jidDecode, getAggregateVotesInPollMessage, proto } = require("baileys-mod")
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, generateForwardMessageContent, prepareWAMessageMedia, generateWAMessageFromContent, generateMessageID, downloadContentFromMessage, jidDecode, getAggregateVotesInPollMessage, proto } = require("baileys-mod")
 const fs = require('fs')
 const pino = require('pino')
 const chalk = require('chalk')
@@ -20,7 +23,6 @@ const _ = require('lodash')
 const { Boom } = require('@hapi/boom')
 const PhoneNumber = require('awesome-phonenumber')
 const { color, bgcolor } = require('./lib/color')
-const { welcomeCard } = require("greetify");
 const logger = require('./logger') // Import enhanced logger with libsignal fixes
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -46,6 +48,7 @@ output: process.stdout
 rl.question(text, resolve)
   })
 };
+
 const spinner = { 
   "interval": 120,
   "frames": [
@@ -77,12 +80,12 @@ spins.add(id, {text: text})
 }
 const success = (id, text) => {
 spins.succeed(id, {text: text})
-
 }
+
 //=================================================//
 
 CFonts.say(
-  "ALEXA - AI WHATSAPP ASSISTANT\n\n",
+  "WA BROADCAST MANAGER\n\n",
   {
     colors: ["system"],
     font: "console",
@@ -90,12 +93,12 @@ CFonts.say(
   },
 );
 console.log(color(`INFO:`, "gold"), color(`\n-`, "gold"), color(`Jika code tidak muncul enter 1-2x lagi`, "red"), color(`\n-`, "gold"), color(`Format nomor diawali dengan 62..., bukan 08...`, "red"))
+
 //=================================================//
 async function connectToWhatsApp() {
 const { state, saveCreds } = await useMultiFileAuthState(global.sessionName)
 
 const { version } = await fetchLatestBaileysVersion();
-
 
 const client = makeWASocket({
   version,
@@ -118,11 +121,6 @@ const client = makeWASocket({
   }
 });
 
-// Initialize BroadcastManager for personal broadcasting
-const BroadcastManager = require('./lib/broadcastManager');
-global.broadcastManager = new BroadcastManager();
-global.client = client; // Make client globally available for scheduled broadcasts
-
 if (usePairingCode && !client.authState.creds.registered) {
   const phoneNumber = await question(color(`\n\nMasukan Nomor :\n`, 'white'));
 
@@ -130,10 +128,10 @@ if (usePairingCode && !client.authState.creds.registered) {
   console.log('Meminta Code...');
   await delay(3500);
 
-  // Define your custom 8-digit code (alphanumeric) - sesuai dokumentasi README
-  const customPairingCode = "KOPERASI";
+  // Define your custom 8-digit code for WA Broadcast Manager
+  const customPairingCode = "WABC-MGR";
   const code = await client.requestPairingCode(phoneNumber.trim(), customPairingCode);
-  console.log(color(`⚠︎ Kode Pairing Bot Whatsapp kamu :`, "gold"), color(`${code?.match(/.{1,4}/g)?.join('-') || code}`, "white"));
+  console.log(color(`⚠︎ Kode Pairing WA Broadcast Manager :`, "gold"), color(`${code?.match(/.{1,4}/g)?.join('-') || code}`, "white"));
 } else if (client.authState.creds.registered) {
   console.log(color('✅ Using existing session', 'green'));
 }
@@ -170,7 +168,7 @@ client.ev.on('connection.update', (update) => {
       }, 3000)
     }
   } else if (connection === 'open') {
-    success('qr', 'Bot connected successfully!')
+    success('qr', 'WA Broadcast Manager connected successfully!')
     logger.info('✅ Successfully connected to WhatsApp')
   } else if (connection === 'connecting') {
     start('qr', 'Connecting to WhatsApp...')
@@ -202,9 +200,9 @@ logger.error('❌ Error in messages.upsert:', err)
 }
 })
 
-// Libsignal fixes: Enhanced group participant logging
-const welcomeEnabled = false; // Ubah menjadi false untuk menonaktifkan pesan sambutan
-const goodbyeEnabled = false; // Ubah menjadi false untuk menonaktifkan pesan perpisahan
+// Enhanced group participant logging for broadcast management
+const welcomeEnabled = true;
+const goodbyeEnabled = false;
 
 client.ev.on('group-participants.update', async (anu) => {
   try {
@@ -215,16 +213,14 @@ client.ev.on('group-participants.update', async (anu) => {
     for (let num of participants) {
       if (anu.action == 'add' && welcomeEnabled) {
         logger.info(`✅ Sending welcome message to ${num}`)
-        // Kirim teks sambutan
         await client.sendMessage(anu.id, {
-          text: `Halo @${num.split("@")[0]}, Selamat Datang Di Group *${metadata.subject}*\n\n_Jangan lupa baca deskripsi Grup ya ✨`,
+          text: `Halo @${num.split("@")[0]}, Selamat Datang Di Group *${metadata.subject}*\n\n_Jangan lupa baca deskripsi Grup ya ✨_\n\n🤖 *WA Broadcast Manager* - Advanced Broadcasting Tool`,
           mentions: [num]
         });
       } else if (anu.action == 'remove' && goodbyeEnabled) {
         logger.info(`👋 Sending goodbye message for ${num}`)
-        // Kirim teks perpisahan
         await client.sendMessage(anu.id, {
-          text: `Keluar aja lu sono @${num.split("@")[0]}`,
+          text: `Selamat tinggal @${num.split("@")[0]} 👋`,
           mentions: [num]
         });
       }
@@ -233,21 +229,72 @@ client.ev.on('group-participants.update', async (anu) => {
     logger.error('❌ Error in group-participants.update:', err);
   }
 });
+
 //=================================================//
+// WA Broadcast Manager specific functions
 //=================================================//
-//=================================================//
-//=================================================//
- client.sendImage = async (jid, path, caption = '', quoted = '', options) => {
+
+// Enhanced broadcast function with delivery tracking
+client.broadcastMessage = async (message, targets = [], options = {}) => {
+  try {
+    logger.info(`📢 Starting broadcast to ${targets.length} targets`)
+    const results = {
+      success: [],
+      failed: [],
+      total: targets.length
+    }
+    
+    for (let i = 0; i < targets.length; i++) {
+      try {
+        const target = targets[i]
+        logger.debug(`📤 Sending broadcast to ${target} (${i + 1}/${targets.length})`)
+        
+        await client.sendMessage(target, message, options)
+        results.success.push(target)
+        
+        // Add delay to prevent flooding
+        if (i < targets.length - 1) {
+          await delay(1000) // 1 second delay between messages
+        }
+      } catch (err) {
+        logger.error(`❌ Failed to send broadcast to ${targets[i]}:`, err)
+        results.failed.push({ target: targets[i], error: err.message })
+      }
+    }
+    
+    logger.info(`📊 Broadcast completed - Success: ${results.success.length}, Failed: ${results.failed.length}`)
+    return results
+  } catch (err) {
+    logger.error('❌ Error in broadcast function:', err)
+    throw err
+  }
+}
+
+// Get all group participants for broadcasting
+client.getAllGroupParticipants = async (groupJid) => {
+  try {
+    const groupMetadata = await client.groupMetadata(groupJid)
+    return groupMetadata.participants.map(p => p.id)
+  } catch (err) {
+    logger.error('❌ Error getting group participants:', err)
+    return []
+  }
+}
+
+// Enhanced file sending for broadcasts
+client.sendImage = async (jid, path, caption = '', quoted = '', options) => {
 let buffer = Buffer.isBuffer(path) ? path : /^data:.*?\/.*?;base64,/i.test(path) ? Buffer.from(path.split`,`[1], 'base64') : /^https?:\/\//.test(path) ? await (await getBuffer(path)) : fs.existsSync(path) ? fs.readFileSync(path) : Buffer.alloc(0)
 return await client.sendMessage(jid, { image: buffer, caption: caption, ...options }, { quoted })}
-//=================================================//
+
 client.sendText = (jid, text, quoted = '', options) => client.sendMessage(jid, { text: text, ...options }, { quoted })
-//=================================================//
+
 client.sendTextWithMentions = async (jid, text, quoted, options = {}) => client.sendMessage(jid, { text: text, contextInfo: { mentionedJid: [...text.matchAll(/@(\d{0,16})/g)].map(v => v[1] + '@s.whatsapp.net') }, ...options }, { quoted })
- //=================================================//
- //=================================================//
- //=================================================//
- client.downloadAndSaveMediaMessage = async (message, filename, attachExtension = true) => {
+
+//=================================================//
+// Other utility functions from original alexa bot
+//=================================================//
+
+client.downloadAndSaveMediaMessage = async (message, filename, attachExtension = true) => {
 let quoted = message.msg ? message.msg : message
 let mime = (message.msg || message).mimetype || ''
 let messageType = message.mtype ? message.mtype.replace(/Message/gi, '') : mime.split('/')[0]
@@ -257,12 +304,10 @@ for await(const chunk of stream) {
 buffer = Buffer.concat([buffer, chunk])}
 let type = await FileType.fromBuffer(buffer)
 trueFileName = attachExtension ? (filename + '.' + type.ext) : filename
-// save to file
 await fs.writeFileSync(trueFileName, buffer)
 return trueFileName}
-//=================================================
- client.cMod = (jid, copy, text = '', sender = client.user.id, options = {}) => {
-//let copy = message.toJSON()
+
+client.cMod = (jid, copy, text = '', sender = client.user.id, options = {}) => {
 let mtype = Object.keys(copy.message)[0]
 let isEphemeral = mtype === 'ephemeralMessage'
 if (isEphemeral) {
@@ -282,6 +327,7 @@ else if (copy.key.remoteJid.includes('@broadcast')) sender = sender || copy.key.
 copy.key.remoteJid = jid
 copy.key.fromMe = sender === client.user.id
 return proto.WebMessageInfo.fromObject(copy)}
+
 client.sendFile = async(jid, PATH, fileName, quoted = {}, options = {}) => {
 let types = await client.getFile(PATH, true)
 let { filename, size, ext, mime, data } = types
@@ -300,9 +346,10 @@ else if (/audio/.test(mime)) type = 'audio'
 else type = 'document'
 await client.sendMessage(jid, { [type]: { url: pathFile }, mimetype, fileName, ...options }, { quoted, ...options })
 return fs.promises.unlink(pathFile)}
+
 client.parseMention = async(text) => {
 return [...text.matchAll(/@([0-9]{5,16}|0)/g)].map(v => v[1] + '@s.whatsapp.net')}
-//=================================================//
+
 client.copyNForward = async (jid, message, forceForward = false, options = {}) => {
 let vtype
 if (options.readViewOnce) {
@@ -329,11 +376,10 @@ contextInfo: {
 ...options.contextInfo}} : {})} : {})
 await client.relayMessage(jid, waMessage.message, { messageId:  waMessage.key.id })
 return waMessage}
-//=================================================//
+
 client.getFile = async (PATH, save) => {
 let res
 let data = Buffer.isBuffer(PATH) ? PATH : /^data:.*?\/.*?;base64,/i.test(PATH) ? Buffer.from(PATH.split`,`[1], 'base64') : /^https?:\/\//.test(PATH) ? await (res = await getBuffer(PATH)) : fs.existsSync(PATH) ? (filename = PATH, fs.readFileSync(PATH)) : typeof PATH === 'string' ? PATH : Buffer.alloc(0)
-//if (!Buffer.isBuffer(data)) throw new TypeError('Result is not a buffer')
 let type = await FileType.fromBuffer(data) || {
 mime: 'application/octet-stream',
 ext: '.bin'
@@ -348,7 +394,9 @@ filename,
 data
 }
 }
+
 client.serializeM = (m) => smsg(client, m,)
+
 client.ev.on("connection.update", async (update) => {
 const { connection, lastDisconnect } = update;
 if (connection === "close") {
@@ -365,14 +413,11 @@ connectToWhatsApp();
   } else if (reason === DisconnectReason.connectionReplaced) {
 console.log("Connection Replaced, Another New Session Opened, Please Restart Bot");
 process.exit();
- // } else if (reason === DisconnectReason.loggedOut) {
-//console.log(`Device Logged Out, Please Delete Folder Session yusril and Scan Again.`);
-//process.exit();
      } else if (reason === DisconnectReason.loggedOut) {
   console.log('Device Logged Out. Deleting session and restarting...');
-  fs.rmSync('./session', { recursive: true, force: true }); // <- hapus sesi
+  fs.rmSync('./session', { recursive: true, force: true });
   await delay(3000);
-  connectToWhatsApp(); // restart ulang pairing 
+  connectToWhatsApp();
      
   } else if (reason === DisconnectReason.restartRequired) {
 console.log("Restart Required, Restarting...");
@@ -384,21 +429,23 @@ connectToWhatsApp();
 console.log(`Unknown DisconnectReason: ${reason}|${connection}`);
 connectToWhatsApp();
   }
-} else if (connection === 'connecting') {console.log(color(`─[`,`magenta`),`「`,  color(`Alexa AI Assistant starting...`,`red`), `」`,  color(`]─`,`magenta`))
-
+} else if (connection === 'connecting') {
+console.log(color(`─[`,`magenta`),`「`,  color(`WA Broadcast Manager starting...`,`red`), `」`,  color(`]─`,`magenta`))
 start(`1`,`Connecting...`)
 } else if (connection === "open") {
   success(`1`,`[■■■■■■■■■■■■■■■] Connected`) 
-  console.log(color('✅ Alexa AI Assistant is now online and ready!', 'green'))
+  console.log(color('✅ WA Broadcast Manager is now online and ready!', 'green'))
   console.log(color('📱 Bot Number:', 'cyan'), client.user?.id || 'Unknown')
   console.log(color('🔓 Public Mode:', 'yellow'), client.public ? 'Enabled' : 'Disabled')
-  console.log(color('📝 Ready to receive messages!', 'blue'))
+  console.log(color('📢 Ready for broadcasting!', 'blue'))
 }
-
 });
+
 return client
 }
+
 connectToWhatsApp()
+
 let file = require.resolve(__filename)
 fs.watchFile(file, () => {
 fs.unwatchFile(file)
