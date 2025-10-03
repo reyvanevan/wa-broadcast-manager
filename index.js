@@ -134,21 +134,28 @@ client.public = true
 //=================================================//
 client.ev.on('messages.upsert', async chatUpdate => {
 try {
-// Only log 'notify' type messages to reduce spam
-if (chatUpdate.type === 'notify') {
-  console.log(`📨 Message received: ${chatUpdate.type}`)
-}
 mek = chatUpdate.messages[0]
 if (!mek.message) return
 mek.message = (Object.keys(mek.message)[0] === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message
 if (mek.key && mek.key.remoteJid === 'status@broadcast') return
+
+// Check if message is from group (ends with @g.us)
+const isGroupMessage = mek.key.remoteJid.endsWith('@g.us')
+
+// Only log 'notify' type messages from private chats to reduce spam
+if (chatUpdate.type === 'notify' && !isGroupMessage) {
+  console.log(`📨 Message received: ${chatUpdate.type}`)
+}
+
 // Fix: Ganti kondisi public check
 if (!client.public && !mek.key.fromMe && chatUpdate.type === 'notify') {
-  console.log('❌ Message blocked: bot is in private mode')
+  if (!isGroupMessage) {
+    console.log('❌ Message blocked: bot is in private mode')
+  }
   return
 }
 if (mek.key.id.startsWith('BAE5') && mek.key.id.length === 16) return
-if (chatUpdate.type === 'notify') {
+if (chatUpdate.type === 'notify' && !isGroupMessage) {
   console.log(`🔍 Processing message from: ${mek.key.remoteJid}`)
 }
 m = smsg(client, mek,)
