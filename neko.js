@@ -803,21 +803,46 @@ case 'bot': {
 // === BROADCAST COMMANDS ===
 case 'broadcast': {
   if (!isOwner) return m.reply('❌ Hanya owner yang bisa menggunakan command ini');
-  if (!text) return m.reply(`❌ Format: ${prefix}broadcast [message]`);
+  if (!args[0]) return m.reply(`❌ Format: ${prefix}broadcast [target] [message]
+
+🎯 *Target Options:*
+• all - Semua kontak aktif
+• group:namagroup - Grup kontak tertentu
+• tag:tagname - Kontak dengan tag tertentu
+• 628123456789 - Nomor spesifik
+
+📝 *Contoh:*
+• ${prefix}broadcast all Halo semua!
+• ${prefix}broadcast group:vip Promo khusus VIP
+• ${prefix}broadcast tag:customer Info penting`);
+  
+  const target = args[0];
+  const message = args.slice(1).join(' ');
+  
+  if (!message) return m.reply('❌ Pesan tidak boleh kosong');
   
   try {
     m.reply('📤 Memulai broadcast...');
     
-    const broadcastMessage = { text: text };
-    const result = await broadcastManager.broadcastToGroups(client, broadcastMessage);
+    const targets = [target];
+    const broadcastMessage = { text: message };
+    const targetNumbers = await broadcastManager.resolveTargets(targets);
+    
+    if (targetNumbers.length === 0) {
+      return m.reply('❌ Tidak ada target yang valid ditemukan');
+    }
+    
+    const result = await broadcastManager.sendBroadcast(client, broadcastMessage, targetNumbers);
     
     const report = `✅ *Broadcast Selesai*
 
 📊 *Report:*
 • ID: ${result.id}
+• Target: ${target}
 • Total: ${result.results.total}
 • Berhasil: ${result.results.success.length}
-• Gagal: ${result.results.failed.length}`;
+• Gagal: ${result.results.failed.length}
+• Success Rate: ${((result.results.success.length / result.results.total) * 100).toFixed(1)}%`;
     
     m.reply(report);
   } catch (error) {
@@ -827,24 +852,297 @@ case 'broadcast': {
   break;
 }
 
+case 'bchelp':
+case 'broadcasthelp': {
+  const helpText = `🤖 *WA BROADCAST MANAGER*
+
+📢 *BROADCAST COMMANDS:*
+• ${prefix}broadcast [target] [message] - Send broadcast
+• ${prefix}schedulebc [type] [time] [target] [message] - Schedule broadcast
+• ${prefix}listschedule - List scheduled broadcasts
+• ${prefix}stopschedule [id] - Stop scheduled broadcast
+
+📱 *CONTACT MANAGEMENT:*
+• ${prefix}addcontact [nomor] [nama] [tags] - Add contact
+• ${prefix}removecontact [nomor] - Remove contact  
+• ${prefix}listcontacts - List all contacts
+• ${prefix}creategroup [nama] [deskripsi] - Create contact group
+
+📊 *STATISTICS & INFO:*
+• ${prefix}stats - Show broadcast statistics
+• ${prefix}bchelp - Show this menu
+
+🎯 *Target Examples:*
+• all - All active contacts
+• group:vipgroup - Specific contact group
+• tag:customer - Contacts with specific tag
+• 628123456789 - Specific number
+
+⏰ *Schedule Types:*
+• daily - Every day
+• weekly - Every week (add day 1-7)
+• monthly - Every month (add date 1-31)
+
+📝 *Examples:*
+• ${prefix}broadcast all Hello everyone!
+• ${prefix}addcontact 628123456789 John customer,vip
+• ${prefix}schedulebc daily 09:00 tag:customer Good morning!
+
+✨ *WA Broadcast Manager v2.0*`;
+
+  m.reply(helpText);
+  break;
+}
+
+case 'addcontact': {
+  if (!isOwner) return m.reply('❌ Hanya owner yang bisa menggunakan command ini');
+  if (!args[0]) return m.reply(`❌ Format: ${prefix}addcontact [nomor] [nama] [tag1,tag2]
+
+📝 *Contoh:*
+• ${prefix}addcontact 628123456789 John customer,vip
+• ${prefix}addcontact 081234567890 Jane member`);
+  
+  const number = args[0];
+  const name = args[1] || '';
+  const tags = args[2] ? args[2].split(',').map(tag => tag.trim()) : [];
+  
+  try {
+    const contact = broadcastManager.addContact(number, name, tags);
+    
+    m.reply(`✅ *Kontak Ditambahkan*
+
+📱 *Nomor:* ${contact.number}
+👤 *Nama:* ${contact.name || 'Tidak ada'}
+🏷️ *Tags:* ${contact.tags.length > 0 ? contact.tags.join(', ') : 'Tidak ada'}
+📅 *Ditambahkan:* ${new Date(contact.addedAt).toLocaleString('id-ID')}`);
+  } catch (error) {
+    m.reply('❌ Error: ' + error.message);
+  }
+  break;
+}
+
+case 'removecontact': {
+  if (!isOwner) return m.reply('❌ Hanya owner yang bisa menggunakan command ini');
+  if (!args[0]) return m.reply(`❌ Format: ${prefix}removecontact [nomor]`);
+  
+  const number = args[0];
+  
+  try {
+    const removed = broadcastManager.removeContact(number);
+    
+    if (removed) {
+      m.reply(`✅ *Kontak Dihapus*
+
+📱 *Nomor:* ${removed.number}
+👤 *Nama:* ${removed.name || 'Tidak ada'}`);
+    } else {
+      m.reply('❌ Kontak tidak ditemukan');
+    }
+  } catch (error) {
+    m.reply('❌ Error: ' + error.message);
+  }
+  break;
+}
+
+case 'listcontacts': {
+  if (!isOwner) return m.reply('❌ Hanya owner yang bisa menggunakan command ini');
+  
+  try {
+    const contacts = broadcastManager.contacts.filter(c => c.active);
+    
+    if (contacts.length === 0) {
+      return m.reply('📱 Belum ada kontak yang ditambahkan');
+    }
+    
+    let contactList = `📱 *DAFTAR KONTAK* (${contacts.length})\n\n`;
+    
+    contacts.slice(0, 20).forEach((contact, index) => {
+      contactList += `${index + 1}. ${contact.name || 'No Name'}\n`;
+      contactList += `   📞 ${contact.number.replace('@s.whatsapp.net', '')}\n`;
+      contactList += `   🏷️ ${contact.tags.length > 0 ? contact.tags.join(', ') : 'No tags'}\n\n`;
+    });
+    
+    if (contacts.length > 20) {
+      contactList += `... dan ${contacts.length - 20} kontak lainnya`;
+    }
+    
+    m.reply(contactList);
+  } catch (error) {
+    m.reply('❌ Error: ' + error.message);
+  }
+  break;
+}
+
+case 'creategroup': {
+  if (!isOwner) return m.reply('❌ Hanya owner yang bisa menggunakan command ini');
+  if (!args[0]) return m.reply(`❌ Format: ${prefix}creategroup [nama] [deskripsi]
+
+📝 *Contoh:*
+• ${prefix}creategroup VIP "Pelanggan VIP"`);
+  
+  const groupName = args[0];
+  const description = args.slice(1).join(' ') || '';
+  
+  try {
+    const group = broadcastManager.createContactGroup(groupName, description);
+    
+    m.reply(`✅ *Grup Kontak Dibuat*
+
+👥 *Nama:* ${group.name}
+📝 *Deskripsi:* ${group.description || 'Tidak ada'}
+🆔 *ID:* ${group.id}
+📅 *Dibuat:* ${new Date(group.createdAt).toLocaleString('id-ID')}`);
+  } catch (error) {
+    m.reply('❌ Error: ' + error.message);
+  }
+  break;
+}
+
+case 'schedulebc': {
+  if (!isOwner) return m.reply('❌ Hanya owner yang bisa menggunakan command ini');
+  if (args.length < 4) return m.reply(`❌ Format: ${prefix}schedulebc [type] [time] [target] [message]
+
+⏰ *Schedule Types:*
+• daily - Setiap hari
+• weekly - Setiap minggu (tambahkan hari: 1-7)
+• monthly - Setiap bulan (tambahkan tanggal: 1-31)
+
+📝 *Contoh:*
+• ${prefix}schedulebc daily 09:00 all Selamat pagi!
+• ${prefix}schedulebc weekly 09:00,1 tag:vip Info mingguan VIP
+• ${prefix}schedulebc monthly 08:00,1 group:member Newsletter bulanan`);
+  
+  const scheduleType = args[0]; // daily, weekly, monthly
+  const timeAndDay = args[1].split(','); // ["09:00"] or ["09:00", "1"]
+  const time = timeAndDay[0];
+  const day = timeAndDay[1] ? parseInt(timeAndDay[1]) : undefined;
+  const target = args[2];
+  const message = args.slice(3).join(' ');
+  
+  if (!['daily', 'weekly', 'monthly'].includes(scheduleType)) {
+    return m.reply('❌ Type harus: daily, weekly, atau monthly');
+  }
+  
+  if (!/^\d{2}:\d{2}$/.test(time)) {
+    return m.reply('❌ Format waktu harus HH:MM (contoh: 09:00)');
+  }
+  
+  try {
+    const schedule = {
+      type: scheduleType,
+      time: time,
+      day: day
+    };
+    
+    const targets = [target];
+    const scheduled = broadcastManager.scheduleRecurringBroadcast(
+      { text: message }, 
+      targets, 
+      schedule
+    );
+    
+    let scheduleInfo = `⏰ *Broadcast Terjadwal*
+
+🆔 *ID:* ${scheduled.id}
+📅 *Type:* ${scheduleType}
+🕐 *Waktu:* ${time}`;
+    
+    if (day) {
+      scheduleInfo += `\n📆 *${scheduleType === 'weekly' ? 'Hari' : 'Tanggal'}:* ${day}`;
+    }
+    
+    scheduleInfo += `\n🎯 *Target:* ${target}
+📝 *Pesan:* ${message}
+⏭️ *Next Run:* ${new Date(scheduled.nextRun).toLocaleString('id-ID')}`;
+    
+    m.reply(scheduleInfo);
+  } catch (error) {
+    m.reply('❌ Error: ' + error.message);
+  }
+  break;
+}
+
+case 'listschedule': {
+  if (!isOwner) return m.reply('❌ Hanya owner yang bisa menggunakan command ini');
+  
+  try {
+    const schedules = broadcastManager.scheduledBroadcasts.filter(s => s.status === 'active');
+    
+    if (schedules.length === 0) {
+      return m.reply('📅 Belum ada broadcast terjadwal');
+    }
+    
+    let scheduleList = `� *BROADCAST TERJADWAL* (${schedules.length})\n\n`;
+    
+    schedules.forEach((schedule, index) => {
+      scheduleList += `${index + 1}. ${schedule.id}\n`;
+      scheduleList += `   📅 ${schedule.schedule.type} at ${schedule.schedule.time}\n`;
+      scheduleList += `   🎯 Target: ${schedule.targets.join(', ')}\n`;
+      scheduleList += `   ⏭️ Next: ${new Date(schedule.nextRun).toLocaleString('id-ID')}\n\n`;
+    });
+    
+    m.reply(scheduleList);
+  } catch (error) {
+    m.reply('❌ Error: ' + error.message);
+  }
+  break;
+}
+
+case 'stopschedule': {
+  if (!isOwner) return m.reply('❌ Hanya owner yang bisa menggunakan command ini');
+  if (!args[0]) return m.reply(`❌ Format: ${prefix}stopschedule [schedule_id]`);
+  
+  const scheduleId = args[0];
+  
+  try {
+    const stopped = broadcastManager.stopScheduledBroadcast(scheduleId);
+    
+    if (stopped) {
+      m.reply(`✅ *Schedule Dihentikan*
+
+🆔 *ID:* ${scheduleId}
+⏹️ *Status:* Stopped`);
+    } else {
+      m.reply('❌ Schedule tidak ditemukan atau sudah dihentikan');
+    }
+  } catch (error) {
+    m.reply('❌ Error: ' + error.message);
+  }
+  break;
+}
+
 case 'broadcaststats':
 case 'stats': {
   if (!isOwner) return m.reply('❌ Hanya owner');
   
-  const stats = broadcastManager.getBroadcastStats();
-  const used = process.memoryUsage();
-  
-  const statsText = `📊 *WA Broadcast Manager Stats*
+  try {
+    const broadcastStats = broadcastManager.getBroadcastStats();
+    const contactStats = broadcastManager.getContactStats();
+    const used = process.memoryUsage();
+    
+    const statsText = `📊 *WA BROADCAST MANAGER STATS*
 
-📢 *Broadcast:*
-• Total: ${stats.totalBroadcasts}
-• Success Rate: ${stats.successRate}%
+📢 *Broadcast Statistics:*
+• Total Broadcasts: ${broadcastStats.totalBroadcasts}
+• Completed: ${broadcastStats.completedBroadcasts}
+• Total Messages: ${broadcastStats.totalMessages}
+• Success Rate: ${broadcastStats.successRate}
+• Scheduled Active: ${broadcastStats.scheduledBroadcasts}
 
-🤖 *Bot:*
+📱 *Contact Statistics:*
+• Total Contacts: ${contactStats.totalContacts}
+• Active Contacts: ${contactStats.activeContacts}
+• Contact Groups: ${contactStats.totalGroups}
+• Active Groups: ${contactStats.activeGroups}
+
+🤖 *System:*
 • Runtime: ${runtime(process.uptime())}
 • Memory: ${Math.round(used.heapUsed / 1024 / 1024 * 100) / 100} MB`;
 
-  m.reply(statsText);
+    m.reply(statsText);
+  } catch (error) {
+    m.reply('❌ Error: ' + error.message);
+  }
   break;
 }
 
