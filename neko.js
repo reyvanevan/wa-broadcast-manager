@@ -92,14 +92,15 @@ const command = cleanBody.replace(prefix, '').trim().split(/ +/).shift().toLower
     const pushname = m.pushName || "No Name"
     const text = q = args.join(" ")
     
-    // Debug logs - only for private chats to reduce spam
-    if (!m.isGroup) {
-        console.log('📝 Message body:', body);
-        // Only log if it's a real command (starts with .)
-        if (body.startsWith('.')) {
-          console.log('⚡ Command detected:', command);
-        }
-        console.log('👤 From:', pushname);
+    // Simple log format - only for private chats to reduce spam
+    if (!m.isGroup && body && body.trim()) {
+        const currentTime = moment().tz('Asia/Jakarta').format('HH:mm:ss');
+        const senderNumber = m.sender.replace('@s.whatsapp.net', '');
+        console.log(`[ PESAN ] => ${body}`);
+        console.log(`=> Dari ${pushname} | ${senderNumber}`);
+        console.log(`=> Di ${pushname}`);
+        console.log(`Jam : ${currentTime}`);
+        console.log(''); // Empty line for spacing
     }
     
     const { type, quotedMsg, mentioned, now, fromMe } = m
@@ -256,10 +257,15 @@ const Input = Array.isArray(mentionByTag) && mentionByTag.length > 0 ? mentionBy
       if (!m.key.fromMe) return
     }
     if (m.message) {
-      // Only log commands and broadcast messages from private chats
+      // Simple command log format for private chats only
       if ((body.startsWith('.') || body.startsWith('broadcast')) && !m.isGroup) {
-        console.log(chalk.cyan(`📝 Command: ${body.substring(0, 50)}...`))
-        console.log(chalk.green(`👤 From: ${pushname} | 📍 ${m.isGroup ? 'Group' : 'Private'}`))
+        const currentTime = moment().tz('Asia/Jakarta').format('HH:mm:ss');
+        const senderNumber = m.sender.replace('@s.whatsapp.net', '');
+        console.log(`[ COMMAND ] => ${body}`);
+        console.log(`=> Dari ${pushname} | ${senderNumber}`);
+        console.log(`=> Di ${pushname}`);
+        console.log(`Jam : ${currentTime}`);
+        console.log(''); // Empty line for spacing
       }
     }
 

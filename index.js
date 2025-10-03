@@ -142,22 +142,11 @@ if (mek.key && mek.key.remoteJid === 'status@broadcast') return
 // Check if message is from group (ends with @g.us)
 const isGroupMessage = mek.key.remoteJid.endsWith('@g.us')
 
-// Only log 'notify' type messages from private chats to reduce spam
-if (chatUpdate.type === 'notify' && !isGroupMessage) {
-  console.log(`📨 Message received: ${chatUpdate.type}`)
-}
-
 // Fix: Ganti kondisi public check
 if (!client.public && !mek.key.fromMe && chatUpdate.type === 'notify') {
-  if (!isGroupMessage) {
-    console.log('❌ Message blocked: bot is in private mode')
-  }
   return
 }
 if (mek.key.id.startsWith('BAE5') && mek.key.id.length === 16) return
-if (chatUpdate.type === 'notify' && !isGroupMessage) {
-  console.log(`🔍 Processing message from: ${mek.key.remoteJid}`)
-}
 m = smsg(client, mek,)
 require("./neko")(client, m, chatUpdate,)
 } catch (err) {
