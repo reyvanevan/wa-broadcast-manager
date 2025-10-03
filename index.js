@@ -136,7 +136,7 @@ client.ev.on('messages.upsert', async chatUpdate => {
 try {
 // Only log 'notify' type messages to reduce spam
 if (chatUpdate.type === 'notify') {
-  logger.debug(`📨 Message received: ${chatUpdate.type}`)
+  console.log(`📨 Message received: ${chatUpdate.type}`)
 }
 mek = chatUpdate.messages[0]
 if (!mek.message) return
@@ -144,12 +144,12 @@ mek.message = (Object.keys(mek.message)[0] === 'ephemeralMessage') ? mek.message
 if (mek.key && mek.key.remoteJid === 'status@broadcast') return
 // Fix: Ganti kondisi public check
 if (!client.public && !mek.key.fromMe && chatUpdate.type === 'notify') {
-  logger.warn('❌ Message blocked: bot is in private mode')
+  console.log('❌ Message blocked: bot is in private mode')
   return
 }
 if (mek.key.id.startsWith('BAE5') && mek.key.id.length === 16) return
 if (chatUpdate.type === 'notify') {
-  logger.debug(`🔍 Processing message from: ${mek.key.remoteJid}`)
+  console.log(`🔍 Processing message from: ${mek.key.remoteJid}`)
 }
 m = smsg(client, mek,)
 require("./neko")(client, m, chatUpdate,)
