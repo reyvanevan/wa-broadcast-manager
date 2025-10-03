@@ -416,10 +416,10 @@ if (m.isGroup && !m.key.fromMe) {
     }
 }    
       
-/*      // Middleware: Blok command kalau bukan dari grup, kecuali owner
-if (!m.isGroup && !global.owner.includes(m.sender.split("@")[0])) {
-  return; // Langsung stop, tanpa balasan apapun
-}*/
+// Middleware to block commands from groups except in private chats or for admins/owners
+if (m.isGroup && !global.owner.includes(m.sender.split("@")[0])) {
+    return; // Block command execution in groups for non-owners
+}
       // middleware semua command di private chat, kecuali admin/owner
       if (!m.isGroup && ! global.owner.includes(m.sender.split("@")[0])) {
           return;

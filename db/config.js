@@ -1,6 +1,5 @@
 const fs = require('fs')
 const chalk = require('chalk')
-require('dotenv').config() // Load environment variables
 
 global.owner = process.env.OWNER_NUMBERS ? process.env.OWNER_NUMBERS.split(',') : ['6281224258870', '6289653544913']
 global.nomerOwner = process.env.NOMER_OWNER || '6281224258870'
