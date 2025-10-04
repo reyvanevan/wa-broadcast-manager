@@ -37,6 +37,10 @@ const { color, bgcolor } = require('./lib/color')
 const jsonFilePath = './db/custom_commands.json';
 const botgroupFile = './db/botgroup.json';
 const configPath = './db/groupConfig.json';
+
+// Global store name variable - editable by owner
+let namaStore = global.namaStore || 'WA BROADCAST MANAGER';
+
 const { exec, spawn, execSync } = require("child_process")
 const { smsg, tanggal, getTime, isUrl, sleep, clockString, runtime, fetchJson, getBuffer, jsonformat, format, parseMention, getRandom, getGroupAdmins, generateUniqueRefID, connect } = require('./lib/myfunc')
 // H2H business imports removed for broadcast-only functionality
@@ -1028,6 +1032,24 @@ case 'setbot': {
   fs.writeFileSync(botgroupFile, JSON.stringify(botgroup, null, 2));
 
   m.reply(`✅ Pesan bot grup berhasil diupdate:\n\n"${text}"`);
+  break;
+}
+
+case 'setstore': {
+  if (!isOwner) return m.reply('❌ Hanya owner yang bisa mengubah nama store.');
+  
+  if (!text) return m.reply(`Format salah!\nContoh:\n> ${prefix}setstore ATLANTIC STORE`);
+
+  // Update global store name
+  namaStore = text;
+  global.namaStore = text;
+
+  await sendOrEditMessage(m, `✅ Nama store berhasil diubah menjadi:\n\n*${namaStore}*`);
+  break;
+}
+
+case 'getstore': {
+  await sendOrEditMessage(m, `📝 *Info Store*\n\nNama Store Saat Ini:\n*${namaStore}*\n\nUntuk mengubah nama store:\n${prefix}setstore [nama baru]`);
   break;
 }
            
