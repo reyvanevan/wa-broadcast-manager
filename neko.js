@@ -8,7 +8,6 @@ const fs = require('fs')
 const pino = require('pino')
 const logger = require('./logger') // Enhanced logger with libsignal fixes
 const { libsignalConfig, handleLibsignalError, performanceTracker } = require('./lib/libsignalConfig')
-const pushname = m.pushName || "No Name"
 let defaultMarkupPercentage = 0.01; 
 
 const { firefox } = require('playwright');
@@ -25,7 +24,6 @@ if (!admin.apps.length) {
 
 const antilink = JSON.parse(fs.readFileSync('./src/antilink.json'));
 const md5 = require('md5');
-const isCreator = [nomerBot, ...global.owner].map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(m.sender)
 const firestore = admin.firestore();
 const path = require('path');
 const util = require('util')
@@ -109,6 +107,7 @@ const command = cleanBody.replace(prefix, '').trim().split(/ +/).shift().toLower
     const from = mek.key.remoteJid
     // botNumber already defined above
     const isOwner = [botNumber, ...global.owner].map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(m.sender)
+    const isCreator = [botNumber, ...global.owner].map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(m.sender)
     const sender = m.isGroup ? (m.key.participant ? m.key.participant : m.participant) : m.key.remoteJid
     const groupMetadata = m.isGroup ? await client.groupMetadata(from).catch(e => {}) : ''
     const groupName = m.isGroup ? (groupMetadata && groupMetadata.subject ? groupMetadata.subject : 'Unknown Group') : ''
@@ -322,6 +321,12 @@ client.groupParticipantsUpdate(from, [number], "remove")
 //fungsi custom edit message
 async function sendOrEditMessage(msg, text, initialMsgKey = null) {
   try {
+    // Validasi parameter text
+    if (typeof text !== 'string') {
+      console.log('Warning: text parameter is not a string, converting...');
+      text = String(text);
+    }
+    
     // Jika ada message key sebelumnya, coba edit
     if (initialMsgKey && client && typeof client.relayMessage === 'function') {
       try {
@@ -345,8 +350,13 @@ async function sendOrEditMessage(msg, text, initialMsgKey = null) {
   } catch (error) {
     console.log('SendOrEditMessage error:', error.message);
     // Ultimate fallback
-    const newMsg = await msg.reply(text);
-    return newMsg.key;
+    try {
+      const newMsg = await msg.reply(text);
+      return newMsg.key;
+    } catch (fallbackError) {
+      console.log('Ultimate fallback error:', fallbackError.message);
+      return null;
+    }
   }
 }
 
@@ -728,7 +738,7 @@ case 'broadcasthelp': {
 ✨ Enhanced with Edit Message System
 🚀 75% fewer chat bubbles, better UX!`;
 
-  await sendOrEditMessage(client, m, helpText);
+  await sendOrEditMessage(m, helpText);
   break;
 }
 
