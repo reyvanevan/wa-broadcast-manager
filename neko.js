@@ -666,45 +666,69 @@ case 'broadcast': {
   break;
 }
 
+case 'help':
 case 'bchelp':
 case 'broadcasthelp': {
-  const helpText = `🤖 *WA BROADCAST MANAGER*
+  const helpText = `🤖 *WA BROADCAST MANAGER v2.1*
 
-📢 *BROADCAST COMMANDS:*
-• ${prefix}broadcast [target] [message] - Send broadcast
-• ${prefix}schedulebc [type] [time] [target] [message] - Schedule broadcast
-• ${prefix}listschedule - List scheduled broadcasts
-• ${prefix}stopschedule [id] - Stop scheduled broadcast
+╭─────────────────────────────╮
+│  🎯 *MAIN BROADCAST COMMANDS*  │
+╰─────────────────────────────╯
+
+📢 *BROADCAST:*
+├─ ${prefix}broadcast [target] [message]
+│  Send broadcast to contacts
+├─ ${prefix}schedulebc [type] [time] [target] [msg]  
+│  Schedule automatic broadcast
+├─ ${prefix}listschedule
+│  View scheduled broadcasts  
+└─ ${prefix}stopschedule [id]
+   Cancel scheduled broadcast
 
 📱 *CONTACT MANAGEMENT:*
-• ${prefix}addcontact [nomor] [nama] [tags] - Add contact
-• ${prefix}removecontact [nomor] - Remove contact  
-• ${prefix}listcontacts - List all contacts
-• ${prefix}creategroup [nama] [deskripsi] - Create contact group
+├─ ${prefix}addcontact [number] [name] [tags]
+│  Add new contact with tags
+├─ ${prefix}removecontact [number]
+│  Remove contact from list
+├─ ${prefix}listcontacts
+│  Show all saved contacts
+└─ ${prefix}creategroup [name] [description]
+   Create contact group
 
-📊 *STATISTICS & INFO:*
-• ${prefix}stats - Show broadcast statistics
-• ${prefix}bchelp - Show this menu
+📊 *MONITORING:*
+├─ ${prefix}stats
+│  Broadcast statistics
+└─ ${prefix}help
+   Show this help menu
 
-🎯 *Target Examples:*
-• all - All active contacts
-• group:vipgroup - Specific contact group
-• tag:customer - Contacts with specific tag
-• 628123456789 - Specific number
+╭─────────────────────────────╮
+│      🎯 *TARGET TYPES*        │
+╰─────────────────────────────╯
+
+📌 *Examples:*
+• all → All active contacts
+• group:vipgroup → Specific group
+• tag:customer → Tagged contacts  
+• 628123456789 → Direct number
 
 ⏰ *Schedule Types:*
-• daily - Every day
-• weekly - Every week (add day 1-7)
-• monthly - Every month (add date 1-31)
+• daily → Every day at time
+• weekly → Weekly (add day 1-7)
+• monthly → Monthly (add date 1-31)
 
-📝 *Examples:*
+╭─────────────────────────────╮
+│       📝 *QUICK EXAMPLES*     │
+╰─────────────────────────────╯
+
 • ${prefix}broadcast all Hello everyone!
 • ${prefix}addcontact 628123456789 John customer,vip
 • ${prefix}schedulebc daily 09:00 tag:customer Good morning!
+• ${prefix}creategroup vipgroup Premium customers
 
-✨ *WA Broadcast Manager v2.0*`;
+✨ Enhanced with Edit Message System
+🚀 75% fewer chat bubbles, better UX!`;
 
-  m.reply(helpText);
+  await sendOrEditMessage(client, m, helpText);
   break;
 }
 
