@@ -548,52 +548,6 @@ if (m.isGroup && groupConfigs[m.chat] && groupConfigs[m.chat].lockedCommands?.in
   );
 }
 
-
-     case 'help': {
-
-  return m.reply(
-`╭─ ꒰  *${namaStore}*  ꒱ ─ ʚɞ⸼─╮ 
-
-ⓘ 𝖻𝖾𝗋𝗂𝗄𝗎𝗍 𝖿𝗂𝗍𝗎𝗋 𝗒𝖺𝗇𝗀 𝗍𝖾𝗋𝗌𝖾𝖽𝗂𝖺 𝖽𝗂 𝖻𝗈𝗍 𝗂𝗇𝗂,
-𝗌𝗂𝗅𝖺𝗁𝗄𝖺𝗇 𝗁𝗎𝖻𝗎𝗇𝗀𝗂 𝗈𝗐𝗇𝖾𝗋 𝗃𝗂𝗄𝖺 𝖺𝖽𝖺 𝗄𝖾𝗇𝖽𝖺𝗅𝖺!
-
-─── • ┈ ┈ ୨♡୧  ┈ ┈ • ───
-
-ꕮ ࣪ ׅ  *Bot Name* : ${global.botName}
-ꕮ ࣪ ׅ  *Owner Name* : ATLAN
-
-╭─ ꒰ *menu utama* ꒱ ─ ʚɞ⸼─╮ 
-│☍ ࣪ ׅ  *list*
-│☍ ࣪ ׅ  *owner*
-│☍ ࣪ ׅ  *cekml*
-│☍ ࣪ ׅ  *mlid*
-│☍ ࣪ ׅ  *cekff*
-│☍ ࣪ ׅ  *cekpln*
-╰── ʚɞ  ⸼────────────╯
-
-╭─ ꒰ *menu owner* ꒱ ─ ʚɞ⸼─╮ 
-│☍ ࣪ ׅ  *addsewa*
-│☍ ࣪ ׅ  *setcmd*
-│☍ ࣪ ׅ  *join*
-╰── ʚɞ  ⸼────────────╯
-
-╭─ ꒰ *menu group* ꒱ ─ ʚɞ⸼─╮ 
-│☍ ࣪ ׅ  *addlist*
-│☍ ࣪ ׅ  *updatelist*
-│☍ ࣪ ׅ  *renamelist*
-│☍ ࣪ ׅ  *dellist*
-│☍ ࣪ ׅ  *proses*
-│☍ ࣪ ׅ  *done*
-│☍ ࣪ ׅ  *linkgc*
-│☍ ࣪ ׅ  *hidetag*
-│☍ ࣪ ׅ  *open*
-│☍ ࣪ ׅ  *close*
-│☍ ࣪ ׅ  *join*
-│☍ ࣪ ׅ  *kick*
-│☍ ࣪ ׅ  *antilink*
-╰── ʚɞ  ⸼────────────╯`);
-}
-
             
 case 'bot': {
   let pesanBot;
@@ -685,62 +639,40 @@ case 'bchelp':
 case 'broadcasthelp': {
   const helpText = `🤖 *WA BROADCAST MANAGER v2.1*
 
-╭─────────────────────────────╮
-│  🎯 *MAIN BROADCAST COMMANDS*  │
-╰─────────────────────────────╯
+*📢 BROADCAST*
+• ${prefix}broadcast [target] [message]
+• ${prefix}schedulebc [type] [time] [target] [msg]
+• ${prefix}listschedule
+• ${prefix}stopschedule [id]
 
-📢 *BROADCAST:*
-├─ ${prefix}broadcast [target] [message]
-│  Send broadcast to contacts
-├─ ${prefix}schedulebc [type] [time] [target] [msg]  
-│  Schedule automatic broadcast
-├─ ${prefix}listschedule
-│  View scheduled broadcasts  
-└─ ${prefix}stopschedule [id]
-   Cancel scheduled broadcast
+*📱 CONTACTS*
+• ${prefix}addcontact [number] [name] [tags]
+• ${prefix}removecontact [number]
+• ${prefix}listcontacts
+• ${prefix}creategroup [name] [description]
 
-📱 *CONTACT MANAGEMENT:*
-├─ ${prefix}addcontact [number] [name] [tags]
-│  Add new contact with tags
-├─ ${prefix}removecontact [number]
-│  Remove contact from list
-├─ ${prefix}listcontacts
-│  Show all saved contacts
-└─ ${prefix}creategroup [name] [description]
-   Create contact group
+*📊 INFO*
+• ${prefix}stats
+• ${prefix}help
 
-📊 *MONITORING:*
-├─ ${prefix}stats
-│  Broadcast statistics
-└─ ${prefix}help
-   Show this help menu
+*🎯 TARGETS*
+• all = All contacts
+• group:name = Contact group
+• tag:name = Tagged contacts
+• 628xxx = Direct number
 
-╭─────────────────────────────╮
-│      🎯 *TARGET TYPES*        │
-╰─────────────────────────────╯
+*⏰ SCHEDULE*
+• daily = Every day
+• weekly = Every week (1-7)
+• monthly = Every month (1-31)
 
-📌 *Examples:*
-• all → All active contacts
-• group:vipgroup → Specific group
-• tag:customer → Tagged contacts  
-• 628123456789 → Direct number
+*📝 EXAMPLES*
+${prefix}broadcast all Hello!
+${prefix}addcontact 628123456789 John vip
+${prefix}schedulebc daily 09:00 all Good morning!
 
-⏰ *Schedule Types:*
-• daily → Every day at time
-• weekly → Weekly (add day 1-7)
-• monthly → Monthly (add date 1-31)
-
-╭─────────────────────────────╮
-│       📝 *QUICK EXAMPLES*     │
-╰─────────────────────────────╯
-
-• ${prefix}broadcast all Hello everyone!
-• ${prefix}addcontact 628123456789 John customer,vip
-• ${prefix}schedulebc daily 09:00 tag:customer Good morning!
-• ${prefix}creategroup vipgroup Premium customers
-
-✨ Enhanced with Edit Message System
-🚀 75% fewer chat bubbles, better UX!`;
+✨ Edit Message System Active
+🚀 Better UX, Less Spam!`;
 
   await sendOrEditMessage(m, helpText);
   break;
