@@ -269,36 +269,6 @@ const Input = Array.isArray(mentionByTag) && mentionByTag.length > 0 ? mentionBy
       }
     }
 
-      function getOrderFormat(aliasKey) {
-  if (!aliasKey) return '[KODE] [TUJUAN]';
-
-  const key = aliasKey.toLowerCase();
-  const info = aliasMap[key];
-  if (!info) return '[KODE] [TUJUAN]';
-
-  const brand = info.brand.toUpperCase();
-  const category = info.category.toLowerCase();
-
-  if (brand.includes('MOBILE LEGENDS')) {
-    return '[KODE] [ID] [SERVER]';
-  } else if (['pulsa', 'e-money', 'pln', 'masa aktif', 'paket sms & telpon'].includes(category)) {
-    return '[KODE] [NOHP]';
-  } else {
-    return '[KODE] [ID]'; // Default format untuk game umum
-  }
-}
-
-      /*
-function getContoh(aliasKey) {
-  const format = getOrderFormat(aliasKey);
-  // Contoh dinamis
-  if (format === '[KODE] [ID] [SERVER]') return 'QR ML5 972066397 12864';
-  if (format === '[KODE] [ID]') return 'QR FF10 123456789';
-  if (format === '[KODE] [NOHP]') return 'QR PTL5 085123456789';
-  return '`QR KODE TUJUAN`'; // fallback default
-}
-*/
-
     function readCustomCommands() {
       try {
         const data = fs.readFileSync(jsonFilePath, 'utf8');
@@ -350,12 +320,49 @@ client.groupParticipantsUpdate(from, [number], "remove")
 }
 
 //fungsi custom edit message
-function sendOrEditMessage(msg, text, initialMsgKey = null) {
-  if (initialMsgKey && global.sock && typeof global.sock.editMessage === 'function') {
-    return global.sock.editMessage(initialMsgKey.remoteJid, initialMsgKey, { text });
-  } else {
-    return msg.reply(text);
+async function sendOrEditMessage(msg, text, initialMsgKey = null) {
+  try {
+    // Jika ada message key sebelumnya, coba edit
+    if (initialMsgKey && client && typeof client.relayMessage === 'function') {
+      try {
+        // Menggunakan client.sendMessage dengan edit untuk update message yang ada
+        await client.sendMessage(initialMsgKey.remoteJid, { 
+          text: text,
+          edit: initialMsgKey 
+        });
+        return initialMsgKey; // Return key yang sama untuk chaining
+      } catch (editError) {
+        console.log('Edit message failed, falling back to new message:', editError.message);
+        // Fallback ke m.reply jika edit gagal
+        const newMsg = await msg.reply(text);
+        return newMsg.key;
+      }
+    } else {
+      // Jika tidak ada key sebelumnya, kirim message baru
+      const newMsg = await msg.reply(text);
+      return newMsg.key;
+    }
+  } catch (error) {
+    console.log('SendOrEditMessage error:', error.message);
+    // Ultimate fallback
+    const newMsg = await msg.reply(text);
+    return newMsg.key;
   }
+}
+
+// Fungsi khusus untuk broadcast progress tracking dengan edit
+async function broadcastProgressTracker(msg, initialText, initialMsgKey = null) {
+  const msgKey = await sendOrEditMessage(msg, initialText, initialMsgKey);
+  
+  return {
+    key: msgKey,
+    update: async (newText) => {
+      return await sendOrEditMessage(msg, newText, msgKey);
+    },
+    finalize: async (finalText) => {
+      return await sendOrEditMessage(msg, finalText, msgKey);
+    }
+  };
 }      
 // Fungsi utilitas untuk membaca database
 function readDatabase() {
@@ -572,231 +579,7 @@ if (m.isGroup && groupConfigs[m.chat] && groupConfigs[m.chat].lockedCommands?.in
 │☍ ࣪ ׅ  *antilink*
 ╰── ʚɞ  ⸼────────────╯`);
 }
-           
-       
-			case "mlreg": 
-case "mlid":
-case "idml":
-case "regml": {
-  const { format } = require("util");
-  if (Array.from(text).filter((x) => (x == "(" || x == ")")).length == 2) {
-    if (isNaN(parseInt(text)) || !isNaN(parseInt(text)) && (format(parseInt(text)).length < 6 || format(parseInt(text)).length > 10)) {
-      return m.reply("Invalid users id");
-    } else if (!text.includes("(") && !text.includes(")") || text.includes("(") && text.includes(")") && !isNaN(parseInt(text.split("(")[1])) && (format(parseInt(text.split("(")[1])).length < 4 || format(parseInt(text.split("(")[1])).length > 5)) {
-      return m.reply("Invalid servers id");
-    }
-    var userId = format(parseInt(text)).trim();
-    var serverId = format(parseInt(text.split("(")[1])).trim();
-  } else if (text.split(" ").filter((x) => (x !== "" && !isNaN(parseInt(x)))).length == 2) {
-    const getdata = text.split(" ").filter((x) => (x !== "" && !isNaN(parseInt(x)))).map((x) => x.trim());
-    if (getdata[0].length < 6 || getdata[0].length > 10) {
-      return m.reply("Invalid users id");
-    } else if (getdata[1].length < 4 || getdata[1].length > 5) {
-      return m.reply("Invalid servers id");
-    }
-    var userId = format(parseInt(getdata[0])).trim();
-    var serverId = format(parseInt(getdata[1])).trim();
-  } else {
-    return m.reply("Example not found!!");
-  }
 
-  // Kirim pesan awal dan simpen key
-  const initialMsg = await m.reply('dih, kepo amat dah');
-  const msgKey = initialMsg.key;
-
-  const fetch = require("node-fetch");
-  const url = `https://dev.luckycat.my.id/api/stalker/mobile-legend?users=${userId}&servers=${serverId}`;
-
-  try {
-    const response = await fetch(url);
-    const result = await response.json();
-
-    if (result.status && result.data) {
-      const { nickname, country } = result.data;
-      // Edit pesan awal dengan hasil
-      await client.sendMessage(msgKey.remoteJid, {
-        text: `Mobile Legends\n\n> *Nickname:* ${nickname}\n> *Country:* ${country}\n\n© AtlanticGate`,
-        edit: msgKey
-      });
-    } else {
-      // Edit pesan awal dengan error
-      await client.sendMessage(msgKey.remoteJid, {
-        text: "*_ID Salah_*",
-        edit: msgKey
-      });
-    }
-  } catch (error) {
-    console.error('Error fetching API:', error.message);
-    // Edit pesan awal dengan error
-    await client.sendMessage(msgKey.remoteJid, {
-      text: "*_ID Salah_*",
-      edit: msgKey
-    });
-  }
-
-  break;
-}
-            
-            //latest update cekganda
-            //case 'cekml':
-        case 'cekganja':
-case 'cekganda': {
-  if (!q) return m.reply(`🔍CEK NICK MLBB & FIRST TOPUP\nContoh: cekganda 566055979 8250`);
-  const [gameId, server] = text.split(' ');
-  if (!gameId || !server) return m.reply('Game ID dan Server wajib di isi');
-
-  // Kirim pesan awal dan simpen key
-  const initialMsg = await m.reply('Sedang mengecek data akun MLBB...');
-  const msgKey = initialMsg.key;
-
-  // Queue sederhana di dalam case
-  const queue = [];
-  let isProcessing = false;
-
-  const processQueue = async () => {
-    if (isProcessing || queue.length === 0) return;
-    isProcessing = true;
-    const { msg, gameId, server, msgKey } = queue.shift();
-    try {
-      await handleCekganda(msg, gameId, server, msgKey);
-    } catch (error) {
-      console.error(`Error in queue: ${error.message}`);
-      // Edit pesan awal dengan error
-      await client.sendMessage(msgKey.remoteJid, {
-        text: 'Proses gagal, coba lagi nanti. Server mungkin sibuk.',
-        edit: msgKey
-      }, { quoted: m });
-    }
-    isProcessing = false;
-    processQueue();
-  };
-
-  const handleCekganda = async (msg, gameId, server, msgKey) => {
-    const browser = await firefox.launch({ headless: true });
-    const page = await browser.newPage();
-
-    try {
-      console.log(`Mengisi Game ID: ${gameId} dan Server: ${server}...`);
-      await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
-      await page.goto('https://www.mobapay.com/mlbb/?r=ID', { waitUntil: 'domcontentloaded', timeout: 10000 });
-
-      const gameIdInput = await page.waitForSelector('#userInput', { timeout: 10000 })
-        .catch(() => console.log('Elemen #userInput nggak ditemukan.'));
-      if (!gameIdInput) throw new Error('Elemen Game ID nggak ketemu');
-
-      const serverInput = await page.waitForSelector('#serverInput', { timeout: 10000 })
-        .catch(() => console.log('Elemen #serverInput nggak ditemukan.'));
-      if (!serverInput) throw new Error('Elemen Server nggak ketemu');
-
-      await page.fill('#userInput', gameId);
-      await page.fill('#serverInput', server);
-
-      await page.dispatchEvent('#userInput', 'blur');
-      await page.dispatchEvent('#serverInput', 'blur');
-
-      const firstItem = await page.waitForSelector('.tracker-recharge-item', { timeout: 10000 });
-      if (firstItem) {
-        await firstItem.click({ timeout: 5000 }).catch(async (e) => {
-          console.log('Klik gagal, coba tutup modal:', e.message);
-          const modal = await page.$('.mobapay-modal-body', { timeout: 5000 });
-          if (modal) {
-            const closeButton = await page.$('.mobapay-modal-close', { timeout: 5000 });
-            if (closeButton) await closeButton.click({ timeout: 5000 });
-          }
-          await firstItem.click({ timeout: 5000 });
-        });
-      } else throw new Error('Elemen item top-up nggak ketemu');
-
-      await page.waitForFunction(
-        () => !document.querySelector('.mobapay-user-character-name')?.textContent.includes('Display after verification'),
-        { timeout: 30000, polling: 500 }
-      ).catch(() => console.log('Verifikasi belum selesai dalam 30 detik.'));
-
-      await page.waitForTimeout(3000);
-      await page.waitForSelector('.mobapay-user-character-name', { timeout: 10000 });
-      await page.waitForSelector('.mobapay-recharge-wrapper', { timeout: 10000 });
-      await page.waitForSelector('.tracker-recharge-item', { timeout: 10000 });
-
-      let nickname = '[Cek di Mobapay]';
-      const nicknameElement = await page.$('.mobapay-user-character-name')
-        .catch(() => console.log('Elemen nickname nggak ditemukan.'));
-      if (nicknameElement) nickname = await nicknameElement.innerText();
-
-      let isValidData = true;
-      try {
-        const apiUrl = `https://dev.luckycat.my.id/api/stalker/mobile-legend?users=${gameId}&servers=${server}`;
-        const apiResponse = await page.evaluate(async (url) => {
-          const response = await fetch(url);
-          return response.json();
-        }, apiUrl);
-        if (!apiResponse.status || !apiResponse.data) {
-          console.log('API gagal atau data tidak lengkap:', apiResponse.msg);
-          isValidData = false;
-          // Edit pesan awal dengan error
-          await client.sendMessage(msgKey.remoteJid, {
-            text: 'Data akun tidak valid: ' + apiResponse.msg,
-            edit: msgKey
-          }, { quoted: m });
-          return;
-        }
-        nickname = apiResponse.data.nickname || nickname;
-        const country = `${apiResponse.data.country} ${apiResponse.data.emoji}`;
-        let output = `👤 *Nickname:* ${nickname}\n`;
-        output += `🆔 *User ID:* ${gameId}\n`;
-        output += `🌐 *Zone ID:* ${server}\n`;
-        output += `🌍 *Negara:* ${country}\n`;
-
-        if (isValidData) {
-          output += `\n💎 *First Topup Status:*\n`;
-          const rechargeItems = await page.$$('.tracker-recharge-item');
-          const firstTopupTiers = [50, 150, 250, 500];
-          for (const item of rechargeItems) {
-            const diamonds = parseInt(await item.getAttribute('data-diamonds') || '0');
-            const bonus = await item.getAttribute('data-bonus') || '';
-            if (firstTopupTiers.includes(diamonds)) {
-              const hasActive = await item.$('.mobapay-recharge-item-active') !== null;
-              let hasReachLimit = false;
-              const limitElement = await item.$('.mobapay-recharge-item-reachlimit');
-              if (limitElement) {
-                const limitText = await limitElement.innerText();
-                hasReachLimit = limitText.includes('Purchase limit reached');
-              }
-              const status = hasReachLimit ? '❌' : (hasActive ? '✅' : '✅');
-              output += `• ${diamonds} + ${bonus.replace('+', '')} ${status}\n`;
-            }
-          }
-        }
-        // Edit pesan awal dengan hasil
-        await client.sendMessage(msgKey.remoteJid, {
-          text: output,
-          edit: msgKey
-        });
-      } catch (error) {
-        console.log('Error mengakses API:', error.message);
-        isValidData = false;
-        // Edit pesan awal dengan error
-        await client.sendMessage(msgKey.remoteJid, {
-          text: 'Data akun tidak valid: Error saat mengakses.',
-          edit: msgKey
-        });
-      }
-    } catch (error) {
-      console.log('error:', error);
-      // Edit pesan awal dengan error
-      await client.sendMessage(msgKey.remoteJid, {
-        text: 'Sabar sayang aku ga kemana, satu-satu gw prosesnya ini pelerrr!\n\n> Usahakan jeda beberapa detik sebelum input data baru ya sayang...\n> Atau mungkin orang lain sedang menggunakan fitur ini juga dalam waktu bersamaan.\n> Coba lagi dalam beberapa saat.',
-        edit: msgKey
-      });
-    } finally {
-      await browser.close();
-    }
-  };
-
-  // Tambah ke queue
-  queue.push({ msg: m, gameId, server, msgKey });
-  processQueue();
-  break;
-}
             
 case 'bot': {
   let pesanBot;
@@ -837,18 +620,27 @@ case 'broadcast': {
   if (!message) return m.reply('❌ Pesan tidak boleh kosong');
   
   try {
-    m.reply('📤 Memulai broadcast...');
+    // Initialize progress tracker with edit message capability
+    const progressTracker = await broadcastProgressTracker(m, '📤 Memulai broadcast...');
     
     const targets = [target];
     const broadcastMessage = { text: message };
+    
+    // Update progress: Resolving targets
+    await progressTracker.update('🔍 Mencari target broadcast...');
+    
     const targetNumbers = await broadcastManager.resolveTargets(targets);
     
     if (targetNumbers.length === 0) {
-      return m.reply('❌ Tidak ada target yang valid ditemukan');
+      return await progressTracker.finalize('❌ Tidak ada target yang valid ditemukan');
     }
+    
+    // Update progress: Starting broadcast
+    await progressTracker.update(`📡 Memulai broadcast ke ${targetNumbers.length} target...\n⏳ Proses berlangsung...`);
     
     const result = await broadcastManager.sendBroadcast(client, broadcastMessage, targetNumbers);
     
+    // Final result with detailed report
     const report = `✅ *Broadcast Selesai*
 
 📊 *Report:*
@@ -857,12 +649,19 @@ case 'broadcast': {
 • Total: ${result.results.total}
 • Berhasil: ${result.results.success.length}
 • Gagal: ${result.results.failed.length}
-• Success Rate: ${((result.results.success.length / result.results.total) * 100).toFixed(1)}%`;
+• Success Rate: ${((result.results.success.length / result.results.total) * 100).toFixed(1)}%
+
+🕐 Selesai pada: ${new Date().toLocaleString('id-ID')}`;
     
-    m.reply(report);
+    await progressTracker.finalize(report);
   } catch (error) {
     console.log('Broadcast error:', error);
-    m.reply('❌ Error: ' + error.message);
+    // Use progress tracker for error as well to maintain single message
+    if (typeof progressTracker !== 'undefined' && progressTracker.finalize) {
+      await progressTracker.finalize('❌ Error: ' + error.message);
+    } else {
+      m.reply('❌ Error: ' + error.message);
+    }
   }
   break;
 }
@@ -922,16 +721,21 @@ case 'addcontact': {
   const tags = args[2] ? args[2].split(',').map(tag => tag.trim()) : [];
   
   try {
+    // Initialize progress tracker
+    const progressTracker = await broadcastProgressTracker(m, '⏳ Menambahkan kontak...');
+    
     const contact = broadcastManager.addContact(number, name, tags);
     
-    m.reply(`✅ *Kontak Ditambahkan*
+    const successMessage = `✅ *Kontak Ditambahkan*
 
 📱 *Nomor:* ${contact.number}
 👤 *Nama:* ${contact.name || 'Tidak ada'}
 🏷️ *Tags:* ${contact.tags.length > 0 ? contact.tags.join(', ') : 'Tidak ada'}
-📅 *Ditambahkan:* ${new Date(contact.addedAt).toLocaleString('id-ID')}`);
+📅 *Ditambahkan:* ${new Date(contact.addedAt).toLocaleString('id-ID')}`;
+    
+    await progressTracker.finalize(successMessage);
   } catch (error) {
-    m.reply('❌ Error: ' + error.message);
+    const progressTracker = await broadcastProgressTracker(m, '❌ Error: ' + error.message);
   }
   break;
 }
@@ -943,18 +747,22 @@ case 'removecontact': {
   const number = args[0];
   
   try {
+    // Initialize progress tracker
+    const progressTracker = await broadcastProgressTracker(m, '⏳ Menghapus kontak...');
+    
     const removed = broadcastManager.removeContact(number);
     
     if (removed) {
-      m.reply(`✅ *Kontak Dihapus*
+      const successMessage = `✅ *Kontak Dihapus*
 
 📱 *Nomor:* ${removed.number}
-👤 *Nama:* ${removed.name || 'Tidak ada'}`);
+👤 *Nama:* ${removed.name || 'Tidak ada'}`;
+      await progressTracker.finalize(successMessage);
     } else {
-      m.reply('❌ Kontak tidak ditemukan');
+      await progressTracker.finalize('❌ Kontak tidak ditemukan');
     }
   } catch (error) {
-    m.reply('❌ Error: ' + error.message);
+    const progressTracker = await broadcastProgressTracker(m, '❌ Error: ' + error.message);
   }
   break;
 }
@@ -999,16 +807,21 @@ case 'creategroup': {
   const description = args.slice(1).join(' ') || '';
   
   try {
+    // Initialize progress tracker
+    const progressTracker = await broadcastProgressTracker(m, '⏳ Membuat grup kontak...');
+    
     const group = broadcastManager.createContactGroup(groupName, description);
     
-    m.reply(`✅ *Grup Kontak Dibuat*
+    const successMessage = `✅ *Grup Kontak Dibuat*
 
 👥 *Nama:* ${group.name}
 📝 *Deskripsi:* ${group.description || 'Tidak ada'}
 🆔 *ID:* ${group.id}
-📅 *Dibuat:* ${new Date(group.createdAt).toLocaleString('id-ID')}`);
+📅 *Dibuat:* ${new Date(group.createdAt).toLocaleString('id-ID')}`;
+    
+    await progressTracker.finalize(successMessage);
   } catch (error) {
-    m.reply('❌ Error: ' + error.message);
+    const progressTracker = await broadcastProgressTracker(m, '❌ Error: ' + error.message);
   }
   break;
 }
@@ -1043,6 +856,9 @@ case 'schedulebc': {
   }
   
   try {
+    // Initialize progress tracker
+    const progressTracker = await broadcastProgressTracker(m, '⏳ Membuat jadwal broadcast...');
+    
     const schedule = {
       type: scheduleType,
       time: time,
@@ -1070,9 +886,9 @@ case 'schedulebc': {
 📝 *Pesan:* ${message}
 ⏭️ *Next Run:* ${new Date(scheduled.nextRun).toLocaleString('id-ID')}`;
     
-    m.reply(scheduleInfo);
+    await progressTracker.finalize(scheduleInfo);
   } catch (error) {
-    m.reply('❌ Error: ' + error.message);
+    const progressTracker = await broadcastProgressTracker(m, '❌ Error: ' + error.message);
   }
   break;
 }
@@ -1196,54 +1012,6 @@ case 'lists': {
   listCustomCommands(groupID, m);
 }
 break;
-
-//tourl custom name-file
-      case 'tourl': {
-  try {
-    if (!m.quoted || !/image/.test(m.quoted.mimetype)) return m.reply('❌ Balas gambar dengan caption *tourl [nama_file]*');
-
-    const namaFile = (args[0] || `${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '');
-    const filePath = `./tmp/${namaFile}.jpg`;
-
-    // Pastikan folder ./tmp ada
-    const tmpDir = './tmp';
-    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
-
-    // Pake fungsi downloader lokal lo sendiri
-    await downloadAndSaveMediaMessage('image', filePath);
-
-    const FormData = require('form-data');
-    const form = new FormData();
-    form.append('img', fs.createReadStream(filePath));
-    form.append('content_type', '0');
-    form.append('max_th_size', '420');
-
-    const axiosRes = await axios.post('https://api.pixhost.to/images', form, {
-      headers: form.getHeaders()
-    });
-
-    const json = axiosRes.data;
-    if (!json.show_url) return m.reply('❌ Gagal upload: show_url kosong.');
-
-    // Ambil path file dari show_url
-    const match = /\/show\/(\d+)\/(\d+_.+)/.exec(json.show_url);
-    if (!match) return m.reply('❌ Gagal parsing URL.');
-
-    const folderId = match[1];
-    const filename = match[2];
-    const finalUrl = `https://img1.pixhost.to/images/${folderId}/${filename}`;
-
-    m.reply(`✅ Gambar berhasil diupload:\n${finalUrl}`);
-
-    // Opsional: hapus file setelah upload
-    fs.unlinkSync(filePath);
-
-  } catch (err) {
-    console.error('Error upload PixHost:', err);
-    m.reply('❌ Terjadi kesalahan saat upload gambar.');
-  }
-  break;
-}
         
             
         case 'hidetag':
@@ -1270,13 +1038,7 @@ case 'h': {
 }
 
       break
-      case 'join': {
-        if (!isOwner) return
-        if (!text) return m.reply(`Link Groupnya Mana?`)
-        var ini_urrrl = text.split('https://chat.whatsapp.com/')[1]
-        var data = await client.groupAcceptInvite(ini_urrrl).then((res) => m.reply(`Berhasil Join ke grup...`)).catch((err) => m.reply(`Eror.. Munkin bot telah di kick Dari grup tersebut`))
-      }
-      break
+
       case 'getip': {
         if (!isOwner) return
         var http = require('http')
@@ -1354,42 +1116,6 @@ break;
 }
 break;
 
-
-
-break;
-  case 'list':
-case 'lists': {
-  if (!isGroup) return m.reply('Command ini hanya bisa digunakan di grup.');
-
-  const groupID = from;
-  const customCommands = readCustomCommands();
-
-  if (!customCommands[groupID] || Object.keys(customCommands[groupID]).length === 0) {
-    return m.reply('Belum ada list yang disimpan untuk grup ini.');
-  }
-
-  const keys = Object.keys(customCommands[groupID]);
-
-  // Bikin Section list WhatsApp
-  const sections = [{
-    title: "ðŸ“¦ Daftar Produk Manual",
-    rows: keys.map(key => ({
-      title: key,
-      rowId: `${prefix}getlist ${key}`
-    }))
-  }];
-
-  const listMessage = {
-    text: 'Silahkan pilih list yang ingin ditampilkan:',
-    footer: `Atlantic Group - Auto Respon`,
-    title: 'ðŸ“‹ LIST PRODUK MANUAL',
-    buttonText: 'Klik untuk lihat',
-    sections
-  };
-
-  client.sendMessage(m.chat, listMessage, { quoted: m });
-}
-break;
 
             case 'addlist': {
   if (!m.isGroup) return;
@@ -1664,79 +1390,6 @@ case 'form': {
 }
 break;
 
-            
-          case 'mlreg':{
-    if (!text) {
-        return m.reply(`*MOBILE LEGENDS VALIDASI ID V2.0*\n\nGunakan dengan cara :\n> ${prefix + command} ID SERVER\n\nContoh :\n> ${prefix + command} 640015932 10164`);
-    }
-    const fetch = require('node-fetch');
-    const url = 'https://order-sg.codashop.com/validate';
-    const userId = args[0];
-    const zoneId = args[1];
-    const country = "SG";
-
-    if (!userId || !zoneId) {
-        return m.reply(`Format Salah!\n\nSilakan gunakan dengan cara :\n\n> ${prefix + command} userId zoneId\n\nContoh :\n> ${prefix + command} 640015932 10164`);
-    }
-
-    const params = new URLSearchParams();
-    params.append('country', country)
-    params.append('userId', userId);
-    params.append('voucherTypeName', "MOBILE_LEGENDS")
-    params.append('zoneId', zoneId);
-
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
-            },
-            body: params
-        });
-        const data = await response.json();
-        console.log(data);
-        if (data.success === false) { 
-            return m.reply(`Maaf, ID tidak valid`);
-        } else {
-            const encodedUsername = data.result.username;
-            const decodedUsername = decodeURIComponent(encodedUsername);
-            const regionCountry = data.result.create_role_country.toUpperCase();
-            const regionLogin = data.result.this_login_country.toUpperCase();
-            
-            const message = ` *DETAIL AKUN MOBILE LEGENDS*\n\n Username: ${decodedUsername}\n Region Akun: ${regionCountry}\n Region Login: ${regionLogin}`;
-            m.reply(message);
-        }
-    } catch (error) {
-        console.error('Error fetching data:', error);
-        return m.reply('Maaf terjadi kesalahan, silahkan cek Console untuk informasi lebih lanjut');
-    }
-    break;
-}
-
-case "cekpln": {
-    if (!text) return m.reply(`!Silahkan isi dengan nomer meter\n\nContoh : cekpln 14331231507`)
-        let data = {
-          commands: 'pln-subscribe',
-    customer_no: text,
-        }
-        fetch('https://api.digiflazz.com/v1/transaction', {
-            method: 'POST',
-            body: JSON.stringify(data),
-            header: {
-              'Content-Type': 'application/json'
-            }
-          }).then((response) => response.json())
-          .then((res) => {
-            const pesan = `*──••• 「 CEK DATA PLN 」 •••──*
-
-Nama : ${res.data.name}
-Nomor Meter: ${res.data.meter_no}
-Subscribe: ${res.data.subscriber_id}
-Daya : ${res.data.segment_power}`            
-            client.sendMessage(m.chat,{text:pesan})
-          })
-break;
-}    
             case 'antilink': {
   if (!isGroup) return m.reply(mess.group);
   if (!isAdmins) return m.reply(mess.admin);
@@ -1761,218 +1414,7 @@ break;
     m.reply('Gunakan "on" untuk mengaktifkan atau "off" untuk menonaktifkan fitur antilink.');
   };
 break;
-};           
-      case 'buy': {
-        await handleBuyCommand(args, sender, db, client, m, pendingTransactions, namaStore, global);
-        break;
-      }
-
-              case 'addproduk': {
-                await handleAddProduk(m.text.trim(), isOwner, db, admin, m);
-                break;
-              }
-
-        case 'addstok': {
-          await handleAddStok(args, isOwner, db, admin, m);
-          break;
-        }
-		
-        case 'stok': {
-          await handleStok(sender, db, m);
-          break;
-        }
-
-        case 'show':
-case 'get': {
-  const nomor = sender.split("@")[0];
-  console.log('Sender:', sender);
-  console.log('User Nomor:', nomor);
-
-  // Ambil data pengguna dari Firestore
-  const userRef = db.collection('users').doc(nomor);
-
-  let userDoc;
-  try {
-    userDoc = await userRef.get();
-  } catch (error) {
-    console.error('Error accessing Firestore:', error);
-    return m.reply('Terjadi kesalahan saat mengakses data pengguna. Silakan coba lagi nanti.');
-  }
-
-  if (!userDoc.exists) {
-    return m.reply('Kamu belum terdaftar. Silakan ketik: *Daftar* untuk bisa mengakses.');
-  }
-
-  const userData = userDoc.data();
-
-  // Ambil data produk dari file JSON
-  let productData;
-  try {
-    productData = JSON.parse(fs.readFileSync('./db/datadigi.json', 'utf8'));
-  } catch (error) {
-    console.error('Error reading product data:', error);
-    return m.reply('Terjadi kesalahan saat mengakses data produk. Silakan coba lagi nanti.');
-  }
-
-  let aliasKey = args[0] ? args[0].toLowerCase() : null;
-
-  if (!aliasKey || !aliasMap.hasOwnProperty(aliasKey)) {
-    return m.reply(`Key produk "${aliasKey}" tidak dikenali. Masukkan yang valid.`);
-  }
-  
-  //const { marginBronze, marginSilver, marginGold, marginOwner } = require('./db/config')
-  const { category, brand, type, types } = aliasMap[aliasKey];
-  const requestedCategory = category.toUpperCase();
-  const requestedBrand = brand.toUpperCase();
-
-  // Filter produk berdasarkan kategori, brand, dan tipe
-  let matchingProducts = productData.filter(item =>
-    item.brand.toUpperCase() === requestedBrand &&
-    item.category.toUpperCase() === requestedCategory &&
-    (types ? types.includes(item.type) : item.type.toUpperCase() === type.toUpperCase())
-  );
-
-  if (matchingProducts.length === 0) {
-    return m.reply(`Tidak ada produk ditemukan untuk Produk "${aliasKey}".`);
-  }
-
-  matchingProducts.sort((a, b) => a.price - b.price);
-
-  const configData = require('./db/config.js');
-  const defaultMarkupPercentage = configData.defaultMarkupPercentage;
-  const formatOrder = getOrderFormat(aliasKey);
-  const contohOrder = getContoh(aliasKey);
-
-  let formattedResponse = `━═━═━┤❄️ *${requestedBrand}* ├━═━═━\n\n*Status* : ✅ = Ready\n*Status* : ❌ = Close\n*Order Dengan QR ketik* :\n\`QR ${formatOrder}\`\n*Order Dengan Saldo ketik* :\n\`TP ${formatOrder}\`\n*Contoh* :\n${contohOrder}\n━━═━═━━═━═━━═━═━͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏͏\n`;
-	
-    //modified
-    matchingProducts.forEach(product => {
-  const originalPrice = parseFloat(product.price || 0);
-  if (isNaN(originalPrice) || originalPrice === 0) return;
-
-  const statusEmoji = product.seller_product_status && product.buyer_product_status ? '✅' : '❌';
-
-  const hargaSilver = Math.floor(originalPrice * (1 + marginSilver)).toLocaleString();
-  const hargaGold = Math.floor(originalPrice * (1 + marginGold)).toLocaleString();
-  const hargaOwner = Math.floor(originalPrice * (1 + marginOwner)).toLocaleString();
-
-  // Awal teks produk
-  formattedResponse += `\n❄️ *${product.product_name}*\n`;
-
-  // Harga ditampilkan sesuai role
-  if (["BRONZE", "SILVER", "GOLD"].includes(userData.role)) {
-    formattedResponse += `> Harga Silver : Rp. ${hargaSilver}\n`;
-    formattedResponse += `> Harga Gold : Rp. ${hargaGold}\n`;
-  } else if (userData.role === "OWNER") {
-    formattedResponse += `> Harga Silver : Rp. ${hargaSilver}\n`;
-    formattedResponse += `> Harga Gold : Rp. ${hargaGold}\n`;
-    formattedResponse += `> Harga Owner : Rp. ${hargaOwner}\n`;
-  }
-
-  formattedResponse += `> Kode : \`${product.buyer_sku_code}\`\n`;
-  formattedResponse += `> Status : ${statusEmoji}\n┈ׅ──ׄ─꯭─꯭──────꯭ׄ──ׅ┈\n`;
-});
-
-    /*default
-  matchingProducts.forEach(product => {
-    const originalPrice = parseFloat(product.price || 0);
-if (isNaN(originalPrice) || originalPrice === 0) return; // skip produk invalid
-
-    let markupPercentage = defaultMarkupPercentage;
-
-    // Ambil markup berdasarkan role pengguna
-    if (userData) {
-      switch (userData.role) {
-        case "GOLD":
-          markupPercentage = marginGold;
-          break;
-        case "SILVER":
-          markupPercentage = marginSilver;
-          break;
-        case "BRONZE":
-          markupPercentage = marginBronze;
-          break;
-        case "OWNER":
-          markupPercentage = marginOwner;
-          break;
-        default:
-          break;
-      }
-    }
-	
-    const increasedPrice = originalPrice * (1 + markupPercentage);
-    let adjustedPrice;
-    
-    // Pembulatan harga berdasarkan role pengguna
-    if (userData.role === "BRONZE" || userData.role === "OWNER") {
-      adjustedPrice =  Math.floor(increasedPrice);
-    } else if (userData.role === "SILVER" || userData.role === "GOLD") {
-      adjustedPrice = Math.floor(increasedPrice);
-    } else {
-      adjustedPrice = increasedPrice; // Jika role tidak dikenali, gunakan harga asli tanpa pembulatan
-    }
-
- const statusEmoji = product.seller_product_status && product.buyer_product_status ? '✅' : '❌';
-
-//> *Harga Owner* : Rp. ${Math.floor(originalPrice * (1 + marginOwner)).toLocaleString()}
-//Harga Bronze : Rp. ${Math.floor(originalPrice * (1 + marginBronze)).toLocaleString()}      
-    formattedResponse += `\n❄️ *${product.product_name}*\n > Harga Silver : Rp. ${Math.floor(originalPrice * (1 + marginSilver)).toLocaleString()}
-> Harga Gold : Rp. ${Math.floor(originalPrice * (1 + marginGold)).toLocaleString()}
-> Harga Owner : Rp. ${Math.floor(originalPrice * (1 + marginOwner)).toLocaleString()}
-> Kode : \`${product.buyer_sku_code}\`
-> Status : ${statusEmoji}\n┈ׅ──ׄ─꯭─꯭──────꯭ׄ──ׅ┈\n`;
-  });
-*/
-  m.reply(formattedResponse);
-}
-break;
-
-        // H2H Automatic Transaction Cases
-        case 'order': {
-          await handleOrder(body, sender, db, m);
-          break;
-        }
-
-        case 'cek': {
-          await handleCek(body, sender, db, m);
-          break;
-        }
-
-        case 'riwayat': {
-          await handleRiwayat(sender, db, m);
-          break;
-        }
-
-        case 'produk': {
-          await handleProduk(body, sender, db, m);
-          break;
-        }
-        case 'getlay': {
-        if (!isOwner) return;
-        const username = global.digiflazz.username;
-        const apiKey = global.digiflazz.apiKey;
-        const cmd = 'prepaid';
-        const combinedString = username + apiKey + cmd;
-        const signature = crypto.createHash('md5').update(combinedString).digest('hex');
-        const endPoint = "https://api.digiflazz.com/v1/price-list";
-        const postData = {
-          cmd,
-          username,
-          sign: signature,
-        };
-        const apiResponse = await connect(endPoint, postData);
-        if (apiResponse && apiResponse.data) {
-          fs.writeFileSync(productData, JSON.stringify(apiResponse.data, null, 2));
-          m.reply(`Layanan Berhasil di Update`);
-        }
-      }
-      break;
-
-      // Handle konfirmasi pembelian
-      case 'confirm_buy': {
-        await handleConfirmBuy(body, sender, pendingTransactions, db, m, client, moment, admin, namaStore, global);
-        break;
-      }
+};    
 
       // Test Button Message case - sesuai dokumentasi nstar-y/bail
       case 'testbutton': {
